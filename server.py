@@ -105,7 +105,6 @@ ADMIN_HTML = '''
             }
         }
         
-        setInterval(() => location.reload(), 3000);
     </script>
 </body>
 </html>
