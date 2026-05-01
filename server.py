@@ -8,24 +8,20 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Файл для хранения истории
 HISTORY_FILE = 'history.json'
 
-# Загружаем историю, если файл существует
 def load_history():
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, 'r') as f:
             return json.load(f)
     return {'photos': [], 'responses': {}}
 
-# Сохраняем историю
 def save_history(history):
     with open(HISTORY_FILE, 'w') as f:
         json.dump(history, f, indent=2)
 
 history = load_history()
 
-# HTML для админ-панели с историей
 ADMIN_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -54,13 +50,12 @@ ADMIN_HTML = '''
         .clear-btn { background: #f44336; margin-bottom: 20px; }
         .clear-btn:hover { background: #d32f2f; }
         h1 { text-align: center; }
-        .header { display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>ESP32-CAM Админ-панель</h1>
+            <h1>ESP32-CAM Админка</h1>
             <button class="clear-btn" onclick="clearHistory()">Очистить историю</button>
         </div>
         
@@ -77,7 +72,7 @@ ADMIN_HTML = '''
                     {% endif %}
                 </div>
                 <form onsubmit="sendResponse('{{ photo.id }}', event)">
-                    <input type="text" id="response-input-{{ photo.id }}" placeholder="Введите ответ...">
+                    <input type="text" id="response-input-{{ photo.id }}" placeholder="Ответ (ok, wait, error, off, или любой текст)">
                     <button type="submit">Отправить</button>
                 </form>
             </div>
@@ -85,7 +80,7 @@ ADMIN_HTML = '''
         </div>
         
         {% if not photos %}
-        <p>Нет фотографий. Ожидание загрузки...</p>
+        <p>Нет фотографий. Ожидание...</p>
         {% endif %}
     </div>
     
@@ -100,31 +95,17 @@ ADMIN_HTML = '''
                 body: JSON.stringify({ photo_id: photoId, response: response })
             })
             .then(res => res.json())
-            .then(data => {
-                if(data.status === 'ok') {
-                    document.getElementById('response-' + photoId).innerHTML = 'Ответ: ' + response;
-                    document.getElementById('response-input-' + photoId).value = '';
-                }
-            });
+            .then(() => location.reload());
         }
         
         function clearHistory() {
-            if(confirm('Удалить все фото и ответы?')) {
+            if(confirm('Удалить все фото?')) {
                 fetch('/clear_history', { method: 'POST' })
                 .then(() => location.reload());
             }
         }
         
-        // Автообновление каждые 5 секунд
-        setInterval(() => {
-            fetch('/get_updates')
-            .then(res => res.json())
-            .then(data => {
-                if(data.new_photos) {
-                    location.reload();
-                }
-            });
-        }, 5000);
+        setInterval(() => location.reload(), 3000);
     </script>
 </body>
 </html>
@@ -132,26 +113,22 @@ ADMIN_HTML = '''
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    """Приём фото от ESP32-CAM"""
     cam_id = request.headers.get('X-Camera-ID', 'unknown')
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f"{cam_id}_{timestamp}.jpg"
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     
-    # Сохраняем изображение
     with open(filepath, 'wb') as f:
         f.write(request.data)
     
-    # Добавляем в историю
     photo_id = f"{cam_id}_{timestamp}"
-    history['photos'].insert(0, {  # новые фото в начало
+    history['photos'].insert(0, {
         'id': photo_id,
         'filename': filename,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'cam_id': cam_id
     })
     
-    # Ограничиваем историю 50 фото (чтобы не разрасталась)
     if len(history['photos']) > 50:
         old_photos = history['photos'][50:]
         for old in old_photos:
@@ -161,13 +138,11 @@ def upload():
         history['photos'] = history['photos'][:50]
     
     save_history(history)
-    
-    print(f"📸 Получено фото от {cam_id}: {filename}")
+    print(f"📸 Фото от {cam_id}: {filename}")
     return jsonify({"status": "ok", "photo_id": photo_id})
 
 @app.route('/send_response', methods=['POST'])
 def send_response():
-    """Админ отправляет ответ для фото"""
     data = request.json
     photo_id = data.get('photo_id')
     response = data.get('response')
@@ -175,20 +150,18 @@ def send_response():
     if photo_id and response:
         history['responses'][photo_id] = response
         save_history(history)
-        print(f"💬 Ответ для {photo_id}: {response}")
+        print(f"💬 Ответ на {photo_id}: {response}")
         return jsonify({"status": "ok"})
     return jsonify({"status": "error"}), 400
 
 @app.route('/get_response', methods=['GET'])
 def get_response():
-    """ESP32 запрашивает ответ для последнего фото"""
     cam_id = request.args.get('cam', 'unknown')
     
-    # Ищем последнее фото с этой камеры
     for photo in history['photos']:
         if photo['cam_id'] == cam_id:
             photo_id = photo['id']
-            if photo_id in history['responses'] and history['responses'][photo_id]:
+            if photo_id in history['responses']:
                 return jsonify({"response": history['responses'][photo_id]})
             break
     
@@ -196,36 +169,21 @@ def get_response():
 
 @app.route('/admin')
 def admin():
-    """Админ-панель с историей"""
-    return render_template_string(
-        ADMIN_HTML,
-        photos=history['photos'],
-        responses=history['responses']
-    )
-
-@app.route('/get_updates')
-def get_updates():
-    """Проверка новых фото (для автообновления)"""
-    # Просто возвращаем количество фото
-    return jsonify({"photo_count": len(history['photos'])})
+    return render_template_string(ADMIN_HTML, photos=history['photos'], responses=history['responses'])
 
 @app.route('/clear_history', methods=['POST'])
 def clear_history():
-    """Очистка истории"""
     global history
-    # Удаляем все файлы
     for photo in history['photos']:
         filepath = os.path.join(UPLOAD_FOLDER, photo['filename'])
         if os.path.exists(filepath):
             os.remove(filepath)
-    
     history = {'photos': [], 'responses': {}}
     save_history(history)
     return jsonify({"status": "ok"})
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    """Отдача сохранённых фото"""
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 @app.route('/')
@@ -233,17 +191,8 @@ def home():
     return jsonify({
         "status": "ok",
         "message": "ESP32-CAM сервер работает",
-        "endpoints": {
-            "admin": "/admin",
-            "upload": "/upload (POST)",
-            "get_response": "/get_response?cam=ИМЯ_КАМЕРЫ",
-            "send_response": "/send_response (POST)",
-            "clear_history": "/clear_history (POST)"
-        }
+        "admin": "/admin"
     })
 
 if __name__ == '__main__':
-    print("🚀 Сервер запущен!")
-    print("📁 Админ-панель: http://localhost:10000/admin")
-    print("📸 Все фото сохраняются в папке 'uploads'")
     app.run(host='0.0.0.0', port=10000, debug=True)
