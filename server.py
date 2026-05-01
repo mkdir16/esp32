@@ -29,82 +29,140 @@ ADMIN_HTML = '''
     <title>ESP32-CAM Админка</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial; padding: 20px; background: #f0f0f0; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        .photo-card { 
-            display: inline-block; 
-            width: 300px; 
-            margin: 10px; 
-            padding: 10px; 
-            border: 1px solid #ddd; 
-            border-radius: 8px;
-            background: #f9f9f9;
-            vertical-align: top;
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0f1e; margin: 0; padding: 20px; color: #eee; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { text-align: center; color: #fff; margin-bottom: 30px; }
+        .photo-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
         }
-        img { width: 100%; border-radius: 5px; }
-        .timestamp { color: #666; font-size: 0.8em; margin: 5px 0; }
-        .response { color: green; font-weight: bold; margin: 5px 0; }
-        input[type=text] { width: calc(100% - 20px); padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
-        button { padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #45a049; }
-        .clear-btn { background: #f44336; margin-bottom: 20px; }
-        .clear-btn:hover { background: #d32f2f; }
-        h1 { text-align: center; }
+        .photo-card {
+            background: #1e2a3a;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .photo-card img {
+            width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 12px;
+            border: 1px solid #3a4a5a;
+        }
+        .timestamp {
+            color: #8aa;
+            font-size: 0.9em;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .response {
+            text-align: center;
+            font-size: 1.2em;
+            margin: 15px 0;
+            padding: 10px;
+            background: #0a1520;
+            border-radius: 10px;
+            color: #4caf50;
+        }
+        .button-panel {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .cmd-btn {
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 15px 30px;
+            min-width: 100px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            color: white;
+        }
+        .cmd-btn:active { transform: scale(0.96); }
+        .btn-A { background: #2e7d32; }
+        .btn-A:hover { background: #1b5e20; }
+        .btn-B { background: #ed6c02; }
+        .btn-B:hover { background: #e65100; }
+        .btn-C { background: #d32f2f; }
+        .btn-C:hover { background: #c62828; }
+        .btn-D { background: #9c27b0; }
+        .btn-D:hover { background: #7b1fa2; }
+        .clear-btn {
+            background: #555;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .clear-btn:hover { background: #333; }
+        .status-sent { color: #4caf50; margin-left: 15px; font-size: 0.9em; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>ESP32-CAM Админка</h1>
-            <button class="clear-btn" onclick="clearHistory()">Очистить историю</button>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>📸 ESP32-CAM Админка</h1>
+            <button class="clear-btn" onclick="clearHistory()">🗑 Очистить всё</button>
         </div>
         
-        <div id="photos">
+        <div class="photo-grid">
             {% for photo in photos %}
             <div class="photo-card" id="card-{{ photo.id }}">
-                <img src="/uploads/{{ photo.filename }}">
-                <div class="timestamp">{{ photo.timestamp }}</div>
+                <img src="/uploads/{{ photo.filename }}" onclick="this.requestFullscreen()" style="cursor: pointer;">
+                <div class="timestamp">📅 {{ photo.timestamp }}</div>
                 <div class="response" id="response-{{ photo.id }}">
                     {% if responses.get(photo.id) %}
-                    Ответ: {{ responses[photo.id] }}
+                    💬 Ответ: {{ responses[photo.id] }}
                     {% else %}
-                    Нет ответа
+                    ⏳ Ожидает ответа
                     {% endif %}
                 </div>
-                <form onsubmit="sendResponse('{{ photo.id }}', event)">
-                    <input type="text" id="response-input-{{ photo.id }}" placeholder="Ответ (ok, wait, error, off, или любой текст)">
-                    <button type="submit">Отправить</button>
-                </form>
+                <div class="button-panel">
+                    <button class="cmd-btn btn-A" onclick="sendCommand('{{ photo.id }}', 'A')">🔴 A</button>
+                    <button class="cmd-btn btn-B" onclick="sendCommand('{{ photo.id }}', 'B')">🟠 B</button>
+                    <button class="cmd-btn btn-C" onclick="sendCommand('{{ photo.id }}', 'C')">🔵 C</button>
+                    <button class="cmd-btn btn-D" onclick="sendCommand('{{ photo.id }}', 'D')">🟣 D</button>
+                </div>
             </div>
             {% endfor %}
         </div>
         
         {% if not photos %}
-        <p>Нет фотографий. Ожидание...</p>
+        <p style="text-align: center;">⏳ Нет фотографий. Ожидание...</p>
         {% endif %}
     </div>
     
     <script>
-        function sendResponse(photoId, event) {
-            event.preventDefault();
-            const response = document.getElementById('response-input-' + photoId).value;
+        async function sendCommand(photoId, command) {
+            const responseDiv = document.getElementById('response-' + photoId);
+            responseDiv.innerHTML = '📤 Отправка команды ' + command + '...';
             
-            fetch('/send_response', {
+            const res = await fetch('/send_response', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ photo_id: photoId, response: response })
-            })
-            .then(res => res.json())
-            .then(() => location.reload());
-        }
-        
-        function clearHistory() {
-            if(confirm('Удалить все фото?')) {
-                fetch('/clear_history', { method: 'POST' })
-                .then(() => location.reload());
+                body: JSON.stringify({ photo_id: photoId, response: command })
+            });
+            
+            if (res.ok) {
+                responseDiv.innerHTML = '✅ Ответ: ' + command;
+            } else {
+                responseDiv.innerHTML = '❌ Ошибка отправки';
             }
         }
         
+        async function clearHistory() {
+            if(confirm('Удалить все фото?')) {
+                await fetch('/clear_history', { method: 'POST' });
+                location.reload();
+            }
+        }
     </script>
 </body>
 </html>
@@ -128,13 +186,14 @@ def upload():
         'cam_id': cam_id
     })
     
-    if len(history['photos']) > 50:
-        old_photos = history['photos'][50:]
+    # Лимит 30 фото (чтобы не забивать диск)
+    if len(history['photos']) > 30:
+        old_photos = history['photos'][30:]
         for old in old_photos:
             old_path = os.path.join(UPLOAD_FOLDER, old['filename'])
             if os.path.exists(old_path):
                 os.remove(old_path)
-        history['photos'] = history['photos'][:50]
+        history['photos'] = history['photos'][:30]
     
     save_history(history)
     print(f"📸 Фото от {cam_id}: {filename}")
@@ -149,7 +208,7 @@ def send_response():
     if photo_id and response:
         history['responses'][photo_id] = response
         save_history(history)
-        print(f"💬 Ответ на {photo_id}: {response}")
+        print(f"💬 Команда {response} на {photo_id}")
         return jsonify({"status": "ok"})
     return jsonify({"status": "error"}), 400
 
