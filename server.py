@@ -49,6 +49,7 @@ ADMIN_HTML = '''
             object-fit: contain;
             border-radius: 12px;
             border: 1px solid #3a4a5a;
+            cursor: pointer;
         }
         .timestamp {
             color: #8aa;
@@ -73,9 +74,9 @@ ADMIN_HTML = '''
             margin-top: 15px;
         }
         .cmd-btn {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             font-weight: bold;
-            padding: 15px 30px;
+            padding: 12px 25px;
             min-width: 100px;
             border: none;
             border-radius: 50px;
@@ -92,6 +93,8 @@ ADMIN_HTML = '''
         .btn-C:hover { background: #c62828; }
         .btn-D { background: #9c27b0; }
         .btn-D:hover { background: #7b1fa2; }
+        .off-btn { background: #555; }
+        .off-btn:hover { background: #333; }
         .clear-btn {
             background: #555;
             color: white;
@@ -102,7 +105,6 @@ ADMIN_HTML = '''
             margin-bottom: 20px;
         }
         .clear-btn:hover { background: #333; }
-        .status-sent { color: #4caf50; margin-left: 15px; font-size: 0.9em; }
     </style>
 </head>
 <body>
@@ -115,7 +117,7 @@ ADMIN_HTML = '''
         <div class="photo-grid">
             {% for photo in photos %}
             <div class="photo-card" id="card-{{ photo.id }}">
-                <img src="/uploads/{{ photo.filename }}" onclick="this.requestFullscreen()" style="cursor: pointer;">
+                <img src="/uploads/{{ photo.filename }}" onclick="this.requestFullscreen()">
                 <div class="timestamp">📅 {{ photo.timestamp }}</div>
                 <div class="response" id="response-{{ photo.id }}">
                     {% if responses.get(photo.id) %}
@@ -125,17 +127,18 @@ ADMIN_HTML = '''
                     {% endif %}
                 </div>
                 <div class="button-panel">
-                    <button class="cmd-btn btn-A" onclick="sendCommand('{{ photo.id }}', 'A')">🔴 A</button>
+                    <button class="cmd-btn btn-A" onclick="sendCommand('{{ photo.id }}', 'A')">🟢 A</button>
                     <button class="cmd-btn btn-B" onclick="sendCommand('{{ photo.id }}', 'B')">🟠 B</button>
                     <button class="cmd-btn btn-C" onclick="sendCommand('{{ photo.id }}', 'C')">🔵 C</button>
                     <button class="cmd-btn btn-D" onclick="sendCommand('{{ photo.id }}', 'D')">🟣 D</button>
+                    <button class="cmd-btn off-btn" onclick="sendCommand('{{ photo.id }}', 'OFF')">⚫ OFF</button>
                 </div>
             </div>
             {% endfor %}
         </div>
         
         {% if not photos %}
-        <p style="text-align: center;">⏳ Нет фотографий. Ожидание...</p>
+        <p style="text-align: center;">⏳ Нет фотографий. Нажми кнопку на ESP32-CAM</p>
         {% endif %}
     </div>
     
@@ -186,14 +189,13 @@ def upload():
         'cam_id': cam_id
     })
     
-    # Лимит 30 фото (чтобы не забивать диск)
-    if len(history['photos']) > 30:
-        old_photos = history['photos'][30:]
+    if len(history['photos']) > 50:
+        old_photos = history['photos'][50:]
         for old in old_photos:
             old_path = os.path.join(UPLOAD_FOLDER, old['filename'])
             if os.path.exists(old_path):
                 os.remove(old_path)
-        history['photos'] = history['photos'][:30]
+        history['photos'] = history['photos'][:50]
     
     save_history(history)
     print(f"📸 Фото от {cam_id}: {filename}")
