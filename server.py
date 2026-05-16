@@ -30,30 +30,81 @@ ADMIN_HTML = '''
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0f1e; margin: 0; padding: 20px; color: #eee; }
-        .container { max-width: 1400px; margin: 0 auto; }
+        .container { max-width: 1600px; margin: 0 auto; }
         h1 { text-align: center; margin-bottom: 30px; }
         .photo-grid { display: flex; flex-direction: column; gap: 30px; }
         .photo-card { background: #1e2a3a; border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        .photo-card img { width: 100%; max-height: 80vh; object-fit: contain; border-radius: 12px; cursor: pointer; }
+        .photo-card img { 
+            width: 100%; 
+            max-height: 85vh; 
+            object-fit: contain; 
+            border-radius: 12px; 
+            cursor: pointer;
+            border: 1px solid #3a4a5a;
+        }
         .timestamp { color: #8aa; font-size: 0.9em; margin: 10px 0; text-align: center; }
         .response { text-align: center; font-size: 1.2em; margin: 15px 0; padding: 10px; background: #0a1520; border-radius: 10px; color: #4caf50; }
         .button-panel { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 15px; }
-        .cmd-btn { font-size: 1.2rem; font-weight: bold; padding: 12px 25px; border: none; border-radius: 50px; cursor: pointer; transition: 0.1s; color: white; }
+        .cmd-btn { 
+            font-size: 1.3rem; 
+            font-weight: bold; 
+            padding: 12px 25px; 
+            border: none; 
+            border-radius: 50px; 
+            cursor: pointer; 
+            transition: 0.1s; 
+            color: white;
+        }
         .cmd-btn:active { transform: scale(0.96); }
         .btn-A { background: #2e7d32; }
+        .btn-A:hover { background: #1b5e20; }
         .btn-B { background: #ed6c02; }
+        .btn-B:hover { background: #e65100; }
         .btn-C { background: #d32f2f; }
+        .btn-C:hover { background: #c62828; }
         .btn-D { background: #9c27b0; }
+        .btn-D:hover { background: #7b1fa2; }
         .off-btn { background: #555; }
+        .off-btn:hover { background: #333; }
         .delete-btn { background: #b71c1c; margin-top: 10px; }
+        .delete-btn:hover { background: #8b0000; }
         .clear-btn { background: #555; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
+        .clear-btn:hover { background: #333; }
+        .refresh-btn { background: #2196f3; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; margin-left: 10px; }
+        .refresh-btn:hover { background: #1976d2; }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .instructions { 
+            background: #0a1520; 
+            padding: 15px; 
+            border-radius: 10px; 
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            text-align: center;
+        }
+        .instructions span { display: inline-block; margin: 0 10px; }
+        .led-demo { width: 20px; height: 20px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 5px; }
+        .led-green { background: #2e7d32; box-shadow: 0 0 5px #2e7d32; }
+        .led-yellow { background: #ed6c02; box-shadow: 0 0 5px #ed6c02; }
+        .led-red { background: #d32f2f; box-shadow: 0 0 5px #d32f2f; }
+        .led-blue { background: #9c27b0; box-shadow: 0 0 5px #9c27b0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="header">
             <h1>📸 ESP32-CAM Админка</h1>
-            <button class="clear-btn" onclick="clearHistory()">🗑 Очистить всё</button>
+            <div>
+                <button class="refresh-btn" onclick="location.reload()">🔄 Обновить</button>
+                <button class="clear-btn" onclick="clearHistory()">🗑 Очистить всё</button>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <span><span class="led-demo led-green"></span> А — постоянно горит</span>
+            <span><span class="led-demo led-yellow"></span> Б — 1 сек / 1 сек</span>
+            <span><span class="led-demo led-red"></span> В — 0.2 сек / 0.2 сек</span>
+            <span><span class="led-demo led-blue"></span> Г — 2 вспышки / пауза 2 сек / повтор</span>
+            <span><span class="led-demo"></span> OFF — выключить</span>
         </div>
         
         <div class="photo-grid">
@@ -70,9 +121,9 @@ ADMIN_HTML = '''
                 </div>
                 <div class="button-panel">
                     <button class="cmd-btn btn-A" onclick="sendCommand('{{ photo.id }}', 'A')">🟢 А (постоянно)</button>
-                    <button class="cmd-btn btn-B" onclick="sendCommand('{{ photo.id }}', 'B')">🟠 Б (1 сек)</button>
-                    <button class="cmd-btn btn-C" onclick="sendCommand('{{ photo.id }}', 'C')">🔴 В (0.2 сек)</button>
-                    <button class="cmd-btn btn-D" onclick="sendCommand('{{ photo.id }}', 'D')">🟣 Г (2+пауза)</button>
+                    <button class="cmd-btn btn-B" onclick="sendCommand('{{ photo.id }}', 'B')">🟠 Б (редко)</button>
+                    <button class="cmd-btn btn-C" onclick="sendCommand('{{ photo.id }}', 'C')">🔴 В (быстро)</button>
+                    <button class="cmd-btn btn-D" onclick="sendCommand('{{ photo.id }}', 'D')">🟣 Г (2+2)</button>
                     <button class="cmd-btn off-btn" onclick="sendCommand('{{ photo.id }}', 'OFF')">⚫ OFF</button>
                 </div>
                 <div class="button-panel">
@@ -186,9 +237,7 @@ def delete_photo():
             if photo_id in history['responses']:
                 del history['responses'][photo_id]
             save_history(history)
-            
-            # Отправляем сигнал ESP32, что режим нужно сбросить
-            print(f"🗑 Фото {photo_id} удалено, сигнал CLEAR")
+            print(f"🗑 Фото {photo_id} удалено")
             return jsonify({"status": "ok"})
     
     return jsonify({"status": "error"}), 404
