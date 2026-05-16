@@ -22,6 +22,7 @@ def save_history(history):
 
 history = load_history()
 
+# Обновленный HTML-интерфейс в соответствии с вашей таблицей режимов
 ADMIN_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -99,12 +100,13 @@ ADMIN_HTML = '''
             </div>
         </div>
         
+        <!-- Описания изменены под вашу комбинацию режимов -->
         <div class="instructions">
-            <span><span class="led-demo led-green"></span> А — постоянно горит</span>
-            <span><span class="led-demo led-yellow"></span> Б — 1 сек / 1 сек</span>
-            <span><span class="led-demo led-red"></span> В — 0.2 сек / 0.2 сек</span>
-            <span><span class="led-demo led-blue"></span> Г — 2 вспышки / пауза 2 сек / повтор</span>
-            <span><span class="led-demo"></span> OFF — выключить</span>
+            <span><span class="led-demo led-green"></span> Вариант А (Статичный) — Горит постоянно</span>
+            <span><span class="led-demo led-yellow"></span> Вариант Б (Медленный) — 1 сек / 1 сек</span>
+            <span><span class="led-demo led-red"></span> Вариант В (Быстрый) — 0.2 сек / 0.2 сек</span>
+            <span><span class="led-demo led-blue"></span> Вариант Г (Сложный) — 2 вспышки / пауза</span>
+            <span><span class="led-demo"></span> OFF — Выключен</span>
         </div>
         
         <div class="photo-grid">
@@ -114,16 +116,16 @@ ADMIN_HTML = '''
                 <div class="timestamp">📅 {{ photo.timestamp }}</div>
                 <div class="response" id="response-{{ photo.id }}">
                     {% if responses.get(photo.id) %}
-                    💬 Ответ: {{ responses[photo.id] }}
+                    💬 Текущий режим: Вариант {{ responses[photo.id] }}
                     {% else %}
-                    ⏳ Нет ответа
+                    ⏳ Нет ответа (По умолчанию: OFF)
                     {% endif %}
                 </div>
                 <div class="button-panel">
-                    <button class="cmd-btn btn-A" onclick="sendCommand('{{ photo.id }}', 'A')">🟢 А (постоянно)</button>
-                    <button class="cmd-btn btn-B" onclick="sendCommand('{{ photo.id }}', 'B')">🟠 Б (редко)</button>
-                    <button class="cmd-btn btn-C" onclick="sendCommand('{{ photo.id }}', 'C')">🔴 В (быстро)</button>
-                    <button class="cmd-btn btn-D" onclick="sendCommand('{{ photo.id }}', 'D')">🟣 Г (2+2)</button>
+                    <button class="cmd-btn btn-A" onclick="sendCommand('{{ photo.id }}', 'A')">🟢 А (Статичный)</button>
+                    <button class="cmd-btn btn-B" onclick="sendCommand('{{ photo.id }}', 'B')">🟠 Б (Медленный)</button>
+                    <button class="cmd-btn btn-C" onclick="sendCommand('{{ photo.id }}', 'C')">🔴 В (Быстро)</button>
+                    <button class="cmd-btn btn-D" onclick="sendCommand('{{ photo.id }}', 'D')">🟣 Г (Сложный)</button>
                     <button class="cmd-btn off-btn" onclick="sendCommand('{{ photo.id }}', 'OFF')">⚫ OFF</button>
                 </div>
                 <div class="button-panel">
@@ -134,14 +136,14 @@ ADMIN_HTML = '''
         </div>
         
         {% if not photos %}
-        <p style="text-align: center;">⏳ Нет фотографий. Нажми кнопку на ESP32-CAM</p>
+        <p style="text-align: center;">⏳ Нет фотографий. Ожидание загрузки от ESP32-CAM...</p>
         {% endif %}
     </div>
     
     <script>
         async function sendCommand(photoId, command) {
             const responseDiv = document.getElementById('response-' + photoId);
-            responseDiv.innerHTML = '📤 Отправка команды ' + command + '...';
+            responseDiv.innerHTML = '📤 Установка режима ' + command + '...';
             
             const res = await fetch('/send_response', {
                 method: 'POST',
@@ -150,14 +152,14 @@ ADMIN_HTML = '''
             });
             
             if (res.ok) {
-                responseDiv.innerHTML = '✅ Ответ: ' + command;
+                responseDiv.innerHTML = '✅ Активен: Вариант ' + command;
             } else {
-                responseDiv.innerHTML = '❌ Ошибка отправки';
+                responseDiv.innerHTML = '❌ Ошибка изменения режима';
             }
         }
         
         async function deletePhoto(photoId) {
-            if(confirm('Удалить это фото? При удалении светодиод на ESP32 перестанет мигать.')) {
+            if(confirm('Удалить это фото?')) {
                 const res = await fetch('/delete_photo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -170,7 +172,7 @@ ADMIN_HTML = '''
         }
         
         async function clearHistory() {
-            if(confirm('Удалить все фото?')) {
+            if(confirm('Удалить всю историю и фотографии?')) {
                 await fetch('/clear_history', { method: 'POST' });
                 location.reload();
             }
@@ -191,6 +193,15 @@ def upload():
         f.write(request.data)
     
     photo_id = f"{cam_id}_{timestamp}"
+    
+    # Сразу определяем текущую активную команду перед сохранением нового кадра
+    current_response = "OFF"
+    for photo in history['photos']:
+        if photo['cam_id'] == cam_id:
+            if photo['id'] in history['responses']:
+                current_response = history['responses'][photo['id']]
+            break
+
     history['photos'].insert(0, {
         'id': photo_id,
         'filename': filename,
@@ -207,8 +218,14 @@ def upload():
         history['photos'] = history['photos'][:50]
     
     save_history(history)
-    print(f"📸 Фото от {cam_id}: {filename}")
-    return jsonify({"status": "ok", "photo_id": photo_id})
+    print(f"📸 Фото получено от {cam_id}. На ESP32 отправлен режим: {current_response}")
+    
+    # В ответе на POST-запрос ESP32 сразу получает букву нужного режима (A, B, V, G или OFF)
+    return jsonify({
+        "status": "ok", 
+        "photo_id": photo_id,
+        "response": current_response
+    })
 
 @app.route('/send_response', methods=['POST'])
 def send_response():
@@ -219,7 +236,7 @@ def send_response():
     if photo_id and response:
         history['responses'][photo_id] = response
         save_history(history)
-        print(f"💬 Команда {response} на {photo_id}")
+        print(f"⚙️ Установлен Вариант {response} для снимка {photo_id}")
         return jsonify({"status": "ok"})
     return jsonify({"status": "error"}), 400
 
@@ -237,7 +254,7 @@ def delete_photo():
             if photo_id in history['responses']:
                 del history['responses'][photo_id]
             save_history(history)
-            print(f"🗑 Фото {photo_id} удалено")
+            print(f"🗑 Запись {photo_id} удалена")
             return jsonify({"status": "ok"})
     
     return jsonify({"status": "error"}), 404
@@ -256,7 +273,7 @@ def get_response():
                 })
             break
     
-    return jsonify({"response": "", "cleared": True})
+    return jsonify({"response": "OFF", "cleared": True})
 
 @app.route('/admin')
 def admin():
@@ -281,7 +298,7 @@ def uploaded_file(filename):
 def home():
     return jsonify({
         "status": "ok",
-        "message": "ESP32-CAM сервер работает",
+        "message": "ESP32-CAM сервер работает в штатном режиме",
         "admin": "/admin"
     })
 
