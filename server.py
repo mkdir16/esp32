@@ -31,80 +31,22 @@ ADMIN_HTML = '''
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0f1e; margin: 0; padding: 20px; color: #eee; }
         .container { max-width: 1400px; margin: 0 auto; }
-        h1 { text-align: center; color: #fff; margin-bottom: 30px; }
-        .photo-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
-        }
-        .photo-card {
-            background: #1e2a3a;
-            border-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        .photo-card img {
-            width: 100%;
-            max-height: 80vh;
-            object-fit: contain;
-            border-radius: 12px;
-            border: 1px solid #3a4a5a;
-            cursor: pointer;
-        }
-        .timestamp {
-            color: #8aa;
-            font-size: 0.9em;
-            margin: 10px 0;
-            text-align: center;
-        }
-        .response {
-            text-align: center;
-            font-size: 1.2em;
-            margin: 15px 0;
-            padding: 10px;
-            background: #0a1520;
-            border-radius: 10px;
-            color: #4caf50;
-        }
-        .button-panel {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin-top: 15px;
-        }
-        .cmd-btn {
-            font-size: 1.2rem;
-            font-weight: bold;
-            padding: 12px 25px;
-            min-width: 100px;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: transform 0.1s, opacity 0.2s;
-            color: white;
-        }
+        h1 { text-align: center; margin-bottom: 30px; }
+        .photo-grid { display: flex; flex-direction: column; gap: 30px; }
+        .photo-card { background: #1e2a3a; border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .photo-card img { width: 100%; max-height: 80vh; object-fit: contain; border-radius: 12px; cursor: pointer; }
+        .timestamp { color: #8aa; font-size: 0.9em; margin: 10px 0; text-align: center; }
+        .response { text-align: center; font-size: 1.2em; margin: 15px 0; padding: 10px; background: #0a1520; border-radius: 10px; color: #4caf50; }
+        .button-panel { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 15px; }
+        .cmd-btn { font-size: 1.2rem; font-weight: bold; padding: 12px 25px; border: none; border-radius: 50px; cursor: pointer; transition: 0.1s; color: white; }
         .cmd-btn:active { transform: scale(0.96); }
         .btn-A { background: #2e7d32; }
-        .btn-A:hover { background: #1b5e20; }
         .btn-B { background: #ed6c02; }
-        .btn-B:hover { background: #e65100; }
         .btn-C { background: #d32f2f; }
-        .btn-C:hover { background: #c62828; }
         .btn-D { background: #9c27b0; }
-        .btn-D:hover { background: #7b1fa2; }
         .off-btn { background: #555; }
-        .off-btn:hover { background: #333; }
-        .clear-btn {
-            background: #555;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 20px;
-        }
-        .clear-btn:hover { background: #333; }
+        .delete-btn { background: #b71c1c; margin-top: 10px; }
+        .clear-btn { background: #555; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -123,15 +65,18 @@ ADMIN_HTML = '''
                     {% if responses.get(photo.id) %}
                     💬 Ответ: {{ responses[photo.id] }}
                     {% else %}
-                    ⏳ Ожидает ответа
+                    ⏳ Нет ответа
                     {% endif %}
                 </div>
                 <div class="button-panel">
-                    <button class="cmd-btn btn-A" onclick="sendCommand('{{ photo.id }}', 'A')">🟢 A</button>
-                    <button class="cmd-btn btn-B" onclick="sendCommand('{{ photo.id }}', 'B')">🟠 B</button>
-                    <button class="cmd-btn btn-C" onclick="sendCommand('{{ photo.id }}', 'C')">🔵 C</button>
-                    <button class="cmd-btn btn-D" onclick="sendCommand('{{ photo.id }}', 'D')">🟣 D</button>
+                    <button class="cmd-btn btn-A" onclick="sendCommand('{{ photo.id }}', 'A')">🟢 А (постоянно)</button>
+                    <button class="cmd-btn btn-B" onclick="sendCommand('{{ photo.id }}', 'B')">🟠 Б (1 сек)</button>
+                    <button class="cmd-btn btn-C" onclick="sendCommand('{{ photo.id }}', 'C')">🔴 В (0.2 сек)</button>
+                    <button class="cmd-btn btn-D" onclick="sendCommand('{{ photo.id }}', 'D')">🟣 Г (2+пауза)</button>
                     <button class="cmd-btn off-btn" onclick="sendCommand('{{ photo.id }}', 'OFF')">⚫ OFF</button>
+                </div>
+                <div class="button-panel">
+                    <button class="cmd-btn delete-btn" onclick="deletePhoto('{{ photo.id }}')">🗑 Удалить фото</button>
                 </div>
             </div>
             {% endfor %}
@@ -157,6 +102,19 @@ ADMIN_HTML = '''
                 responseDiv.innerHTML = '✅ Ответ: ' + command;
             } else {
                 responseDiv.innerHTML = '❌ Ошибка отправки';
+            }
+        }
+        
+        async function deletePhoto(photoId) {
+            if(confirm('Удалить это фото? При удалении светодиод на ESP32 перестанет мигать.')) {
+                const res = await fetch('/delete_photo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ photo_id: photoId })
+                });
+                if (res.ok) {
+                    document.getElementById('card-' + photoId).remove();
+                }
             }
         }
         
@@ -214,6 +172,27 @@ def send_response():
         return jsonify({"status": "ok"})
     return jsonify({"status": "error"}), 400
 
+@app.route('/delete_photo', methods=['POST'])
+def delete_photo():
+    data = request.json
+    photo_id = data.get('photo_id')
+    
+    for photo in history['photos']:
+        if photo['id'] == photo_id:
+            filepath = os.path.join(UPLOAD_FOLDER, photo['filename'])
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            history['photos'].remove(photo)
+            if photo_id in history['responses']:
+                del history['responses'][photo_id]
+            save_history(history)
+            
+            # Отправляем сигнал ESP32, что режим нужно сбросить
+            print(f"🗑 Фото {photo_id} удалено, сигнал CLEAR")
+            return jsonify({"status": "ok"})
+    
+    return jsonify({"status": "error"}), 404
+
 @app.route('/get_response', methods=['GET'])
 def get_response():
     cam_id = request.args.get('cam', 'unknown')
@@ -222,10 +201,13 @@ def get_response():
         if photo['cam_id'] == cam_id:
             photo_id = photo['id']
             if photo_id in history['responses']:
-                return jsonify({"response": history['responses'][photo_id]})
+                return jsonify({
+                    "response": history['responses'][photo_id],
+                    "last_photo_id": photo_id
+                })
             break
     
-    return jsonify({"response": ""})
+    return jsonify({"response": "", "cleared": True})
 
 @app.route('/admin')
 def admin():
